@@ -2,25 +2,42 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace Homework4
 {
     public class MutexTransaction : ITransactionManager
     {
+        private readonly Mutex m_mutex = new Mutex();
+        
         public bool BeginTransaction()
         {
-            throw new NotImplementedException();
+            return m_mutex.WaitOne();
         }
 
-        public bool CommitTransaction()
+        public bool CommitTransaction(Action action)
         {
-            throw new NotImplementedException();
+            if (action != null)
+            {
+                action.Invoke();
+            }
+
+            m_mutex.ReleaseMutex();
+
+            return true;
         }
 
-        public bool RollbackTransaction()
+        public bool RollbackTransaction(Action action)
         {
-            throw new NotImplementedException();
+            if (action != null)
+            {
+                action.Invoke();
+            }
+
+            m_mutex.ReleaseMutex();
+
+            return true;
         }
     }
 }
