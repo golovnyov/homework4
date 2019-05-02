@@ -1,77 +1,92 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
+using System.Diagnostics;
 using System.Threading;
 
 namespace Homework4
 {
     public class Storage
     {
-        private ITransactionManager m_transactionManager;
+        private Dictionary<int, string> m_mainDictionary;
 
-        private Dictionary<int, object> m_mainDictionary;
-
-        private Dictionary<int, object> m_bufferDictionary;
+        private Dictionary<int, string> m_bufferDictionary;
 
         public Storage()
         {
-            m_transactionManager = new MutexTransaction();
-
-            m_mainDictionary = new Dictionary<int, object>();
-            m_bufferDictionary = new Dictionary<int, object>(2);
+            m_mainDictionary = new Dictionary<int, string>();
         }
 
-        public void Add(int key, object value)
+        #region Transaction
+
+        public IDisposable BeginTransaction()
         {
-            try
+            m_bufferDictionary = new Dictionary<int, string>(m_mainDictionary);
+
+            return new TransactionCore();
+        }
+
+        public void CommitTransaction()
+        {
+            if (m_bufferDictionary != null)
             {
-                m_transactionManager.BeginTransaction();
+                m_mainDictionary = new Dictionary<int, string>(m_bufferDictionary);
 
-                m_bufferDictionary = new Dictionary<int, object>(m_mainDictionary);
-
-                m_bufferDictionary.Add(key, value);
-
-                m_transactionManager.CommitTransaction(Commit);
+                m_bufferDictionary = null;
             }
-            catch (System.Exception)
-            {
-                m_transactionManager.RollbackTransaction(Rollback);
+        }
 
-                throw;
+        public void RollbackTransaction()
+        {
+            m_bufferDictionary = null;
+        }
+
+        #endregion
+
+        public void Add(int key, string value)
+        {
+            if (m_bufferDictionary != null)
+            {
+                m_bufferDictionary.Add(key, value);
+            }
+            else
+            {
+                m_mainDictionary.Add(key, value);
             }
         }
 
         public object Get(int key)
         {
+            if (m_bufferDictionary != null)
+            {
+                return m_bufferDictionary[key];
+            }
+
             return m_mainDictionary[key];
+        }
+
+        public object VolatileGet(int key)
+        {
+            return m_mainDictionary.ContainsKey(key) ? m_mainDictionary[key] : null;
+        }
+
+        public void VolatileRemove(int key)
+        {
+            if (m_mainDictionary.ContainsKey(key) && m_bufferDictionary == null)
+            {
+                m_mainDictionary.Remove(key);
+            }
         }
 
         public void Remove(int key)
         {
-            try
+            if (m_bufferDictionary != null)
             {
-                m_transactionManager.BeginTransaction();
-
-                m_bufferDictionary = new Dictionary<int, object>(m_mainDictionary);
-
                 m_bufferDictionary.Remove(key);
-
-                m_transactionManager.CommitTransaction(Commit);
             }
-            catch (System.Exception)
+            else
             {
-                m_transactionManager.RollbackTransaction(Rollback);
-
-                throw;
+                m_mainDictionary.Remove(key);
             }
-        }
-
-        private void Commit()
-        {
-            m_mainDictionary = m_bufferDictionary;
-        }
-
-        private void Rollback()
-        {
-            m_bufferDictionary = null;
         }
     }
 }
