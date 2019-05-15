@@ -2,7 +2,6 @@
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using System;
 using System.Collections.Generic;
-using System.Threading;
 
 namespace Tests
 {
@@ -19,20 +18,19 @@ namespace Tests
         [TestMethod]
         public void Transaction_Consistency_Add_Success()
         {
-            using (storage.BeginTransaction())
+            try
             {
-                try
-                {
-                    storage.Add(1, "1");
+                storage.BeginTransaction();
 
-                    storage.Add(2, "2");
+                storage.Add(1, "1");
 
-                    storage.CommitTransaction();
-                }
-                catch (Exception)
-                {
-                    storage.RollbackTransaction();
-                }
+                storage.Add(2, "2");
+
+                storage.CommitTransaction();
+            }
+            catch (Exception)
+            {
+                storage.RollbackTransaction();
             }
 
             Assert.AreEqual(storage.Get(1), "1");
@@ -43,20 +41,19 @@ namespace Tests
         [ExpectedException(typeof(KeyNotFoundException))]
         public void Transaction_Consistency_Add_Failure()
         {
-            using (storage.BeginTransaction())
+            try
             {
-                try
-                {
-                    storage.Add(1, "1");
+                storage.BeginTransaction();
 
-                    ThrowException();
+                storage.Add(1, "1");
 
-                    storage.CommitTransaction();
-                }
-                catch (Exception)
-                {
-                    storage.RollbackTransaction();
-                }
+                ThrowException();
+
+                storage.CommitTransaction();
+            }
+            catch (Exception)
+            {
+                storage.RollbackTransaction();
             }
 
             Assert.AreEqual(storage.Get(1), "1");
@@ -65,25 +62,25 @@ namespace Tests
         [TestMethod]
         public void Transaction_Concurency_Add_Success()
         {
-            using (storage.BeginTransaction())
+            try
             {
-                try
-                {
-                    storage.Add(1, "1");
+                storage.BeginTransaction();
 
-                    // emulates an attempt to read dirty data by another user
-                    Assert.AreEqual(storage.VolatileGet(1), null);
+                storage.Add(1, "1");
 
-                    // reads data within transaction by the user who initiates the transaction
-                    Assert.AreEqual(storage.Get(1), "1");
+                // emulates an attempt to read dirty data by another user
+                Assert.AreEqual(storage.VolatileGet(1), null);
 
-                    storage.CommitTransaction();
-                }
-                catch (Exception)
-                {
-                    storage.RollbackTransaction();
-                }
+                // reads data within transaction by the user who initiates the transaction
+                Assert.AreEqual(storage.Get(1), "1");
+
+                storage.CommitTransaction();
             }
+            catch (Exception)
+            {
+                storage.RollbackTransaction();
+            }
+
             //reads committed data
             Assert.AreEqual(storage.Get(1), "1");
         }
@@ -92,56 +89,29 @@ namespace Tests
         [ExpectedException(typeof(KeyNotFoundException))]
         public void Transaction_Concurency_RemoveJustAddedValue_Success()
         {
-            using (storage.BeginTransaction())
+            try
             {
-                try
+                storage.BeginTransaction();
+
+                storage.Add(1, "1");
+
+                // emulates an attempt to modify data by another user
+                storage.VolatileRemove(1);
+
+                if (storage.Get(1) != null)
                 {
-                    storage.Add(1, "1");
-
-                    // emulates an attempt to modify data by another user
-                    storage.VolatileRemove(1);
-
-                    if (storage.Get(1) != null)
-                    {
-                        storage.Remove(1);
-                    }
-
-                    storage.CommitTransaction();
+                    storage.Remove(1);
                 }
-                catch (Exception)
-                {
-                    storage.RollbackTransaction();
-                }
+
+                storage.CommitTransaction();
+            }
+            catch (Exception)
+            {
+                storage.RollbackTransaction();
             }
 
             //reads committed data
             Assert.AreEqual(storage.Get(1), "1");
-        }
-
-        [TestMethod]
-        [ExpectedException(typeof(KeyNotFoundException))]
-        public void Transaction_Timeout()
-        {
-            using (storage.BeginTransaction())
-            {
-                try
-                {
-                    storage.Add(1, "1");
-
-                    Thread.Sleep(6000);
-
-                    storage.CommitTransaction();
-                }
-                catch (Exception ex)
-                {
-                    Assert.AreEqual(ex.GetType(), typeof(Homework4.TimeoutException));
-
-                    storage.RollbackTransaction();
-                }
-            }
-
-            // must produce exception
-            storage.Get(1);
         }
 
         private void ThrowException()

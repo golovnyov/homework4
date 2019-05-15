@@ -1,7 +1,5 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Diagnostics;
-using System.Threading;
 
 namespace Homework4
 {
@@ -18,11 +16,10 @@ namespace Homework4
 
         #region Transaction
 
-        public IDisposable BeginTransaction()
+        public void BeginTransaction()
         {
             m_bufferDictionary = new Dictionary<int, string>(m_mainDictionary);
 
-            return new TransactionCore();
         }
 
         public void CommitTransaction()
@@ -64,6 +61,18 @@ namespace Homework4
             return m_mainDictionary[key];
         }
 
+        public void Remove(int key)
+        {
+            if (m_bufferDictionary != null)
+            {
+                m_bufferDictionary.Remove(key);
+            }
+            else
+            {
+                m_mainDictionary.Remove(key);
+            }
+        }
+
         public object VolatileGet(int key)
         {
             return m_mainDictionary.ContainsKey(key) ? m_mainDictionary[key] : null;
@@ -72,18 +81,6 @@ namespace Homework4
         public void VolatileRemove(int key)
         {
             if (m_mainDictionary.ContainsKey(key) && m_bufferDictionary == null)
-            {
-                m_mainDictionary.Remove(key);
-            }
-        }
-
-        public void Remove(int key)
-        {
-            if (m_bufferDictionary != null)
-            {
-                m_bufferDictionary.Remove(key);
-            }
-            else
             {
                 m_mainDictionary.Remove(key);
             }
